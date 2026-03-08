@@ -133,7 +133,7 @@ def whoami(as_json: bool):
     info = asyncio.run(_run())
 
     if as_json:
-        console.print(json.dumps(info, ensure_ascii=False, indent=2, default=str))
+        click.echo(json.dumps(info, ensure_ascii=False, indent=2, default=str))
         return
 
     premium_names = {0: "None", 1: "Nitro Classic", 2: "Nitro", 3: "Nitro Basic"}

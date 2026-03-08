@@ -41,7 +41,7 @@ def dc_guilds(as_json: bool):
     guilds = asyncio.run(_run())
 
     if as_json:
-        console.print(json_mod.dumps(guilds, ensure_ascii=False, indent=2))
+        click.echo(json_mod.dumps(guilds, ensure_ascii=False, indent=2))
         return
 
     table = Table(title="Discord Servers")
@@ -75,7 +75,7 @@ def dc_channels(guild: str, as_json: bool):
         return
 
     if as_json:
-        console.print(json_mod.dumps(channels, ensure_ascii=False, indent=2))
+        click.echo(json_mod.dumps(channels, ensure_ascii=False, indent=2))
         return
 
     table = Table(title="Text Channels")
@@ -249,7 +249,7 @@ def dc_search(guild: str, keyword: str, channel: str | None, limit: int, as_json
         return
 
     if as_json:
-        console.print(json_mod.dumps(results, ensure_ascii=False, indent=2, default=str))
+        click.echo(json_mod.dumps(results, ensure_ascii=False, indent=2, default=str))
         return
 
     for msg in results:
@@ -283,7 +283,7 @@ def dc_members(guild: str, limit: int, as_json: bool):
         return
 
     if as_json:
-        console.print(json_mod.dumps(members, ensure_ascii=False, indent=2, default=str))
+        click.echo(json_mod.dumps(members, ensure_ascii=False, indent=2, default=str))
         return
 
     table = Table(title=f"Members ({len(members)})")
@@ -325,7 +325,7 @@ def dc_info(guild: str, as_json: bool):
         return
 
     if as_json:
-        console.print(json_mod.dumps(info, ensure_ascii=False, indent=2, default=str))
+        click.echo(json_mod.dumps(info, ensure_ascii=False, indent=2, default=str))
         return
 
     table = Table(title="Guild Info", show_header=False)

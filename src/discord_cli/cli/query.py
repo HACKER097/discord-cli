@@ -34,7 +34,7 @@ def search(keyword: str, channel: str | None, limit: int, as_json: bool):
         return
 
     if as_json:
-        console.print(json_mod.dumps(results, ensure_ascii=False, indent=2, default=str))
+        click.echo(json_mod.dumps(results, ensure_ascii=False, indent=2, default=str))
         return
 
     for msg in results:
@@ -59,7 +59,7 @@ def stats(as_json: bool):
         total = db.count()
 
     if as_json:
-        console.print(json_mod.dumps({"total": total, "channels": channels}, ensure_ascii=False, indent=2, default=str))
+        click.echo(json_mod.dumps({"total": total, "channels": channels}, ensure_ascii=False, indent=2, default=str))
         return
 
     table = Table(title=f"Message Stats (Total: {total})")
@@ -98,7 +98,7 @@ def today(channel: str | None, as_json: bool):
         return
 
     if as_json:
-        console.print(json_mod.dumps(msgs, ensure_ascii=False, indent=2, default=str))
+        click.echo(json_mod.dumps(msgs, ensure_ascii=False, indent=2, default=str))
         return
 
     grouped: dict[str, list[dict]] = defaultdict(list)
@@ -135,7 +135,7 @@ def top(channel: str | None, hours: int | None, limit: int, as_json: bool):
         return
 
     if as_json:
-        console.print(json_mod.dumps(results, ensure_ascii=False, indent=2, default=str))
+        click.echo(json_mod.dumps(results, ensure_ascii=False, indent=2, default=str))
         return
 
     table = Table(title="Top Senders")
