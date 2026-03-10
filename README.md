@@ -23,6 +23,7 @@ discord-cli uses the Discord HTTP API with a **user token** from your local sess
 - `discord dc sync-all` discovers accessible text channels and bootstraps from the API
 - Query commands support `--yaml` and `--json` for scripting and AI agent integration
 - Non-TTY stdout defaults to YAML; override with `OUTPUT=yaml|json|rich|auto`
+- Structured output contract: [SCHEMA.md](./SCHEMA.md)
 
 > **AI Agent Tip:** Prefer `--yaml` for structured output unless a strict JSON parser is required. Use `-n` to limit results.
 - Optional Claude-powered `analyze` and `summary`

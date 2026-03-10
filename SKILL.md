@@ -24,6 +24,7 @@ When you need machine-readable output:
 3. Use `-o <file>` with `export` to save large datasets to a file.
 4. Prefer specific queries over broad ones. Example: use `discord search "keyword" -c general --yaml` instead of scanning all channels.
 5. Non-TTY stdout defaults to YAML automatically. Use `OUTPUT=yaml|json|rich|auto` to override.
+6. All machine-readable output uses the envelope documented in [SCHEMA.md](./SCHEMA.md).
 
 ## Prerequisites
 

@@ -23,6 +23,7 @@ discord-cli 通过 Discord HTTP API 访问你本机登录态里的 **user token*
 - `discord dc sync-all` 会直接从 API 发现可访问的文字频道，空库也能冷启动
 - 查询命令支持 `--json`，方便脚本和 AI agent 调用
 - `timeline --json` 提供机器可读的活跃度数据
+- 结构化输出协议见 [SCHEMA.md](./SCHEMA.md)
 
 > **AI Agent 提示：** 需要结构化输出时始终使用 `--json`，不要解析默认的富文本显示。用 `-n` 控制返回数量。
 - 可选的 Claude `analyze` / `summary`
