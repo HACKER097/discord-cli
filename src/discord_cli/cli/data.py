@@ -1,9 +1,12 @@
 """Data commands — export, purge, analyze, summary."""
 
 import json
+import os
+import sys
 
 import click
 from rich.console import Console
+import yaml
 
 from ._channels import resolve_channel_id_or_raise
 from ..db import MessageDB
@@ -19,7 +22,7 @@ def data_group():
 
 @data_group.command("export")
 @click.argument("channel")
-@click.option("-f", "--format", "fmt", type=click.Choice(["text", "json"]), default="text")
+@click.option("-f", "--format", "fmt", type=click.Choice(["text", "json", "yaml"]), default="text")
 @click.option("-o", "--output", "output_file", help="Output file path")
 @click.option("--hours", type=int, help="Only export last N hours")
 def export(channel: str, fmt: str, output_file: str | None, hours: int | None):
@@ -32,8 +35,11 @@ def export(channel: str, fmt: str, output_file: str | None, hours: int | None):
         console.print(f"[yellow]No messages found for '{channel}'.[/yellow]")
         return
 
+    auto_yaml = fmt == "text" and output_file is None and os.getenv("OUTPUT", "auto").strip().lower() != "rich" and not sys.stdout.isatty()
     if fmt == "json":
         content = json.dumps(msgs, ensure_ascii=False, indent=2, default=str)
+    elif fmt == "yaml" or auto_yaml:
+        content = yaml.safe_dump(msgs, allow_unicode=True, sort_keys=False, default_flow_style=False)
     else:
         lines = []
         for msg in msgs:

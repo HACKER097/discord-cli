@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from click.testing import CliRunner
+import yaml
 
 from discord_cli.cli.main import cli
 from discord_cli.db import MessageDB
@@ -28,6 +29,17 @@ def test_recent_command_supports_json(seeded_db: MessageDB):
     payload = json.loads(result.output)
     assert [row["msg_id"] for row in payload] == ["100", "101"]
     assert all(row["channel_name"] == "general" for row in payload)
+
+
+def test_recent_command_auto_yaml_when_stdout_is_not_tty(seeded_db: MessageDB, monkeypatch):
+    monkeypatch.setenv("OUTPUT", "auto")
+    runner = CliRunner()
+
+    result = runner.invoke(cli, ["recent", "-c", "general", "-n", "2"])
+
+    assert result.exit_code == 0
+    payload = yaml.safe_load(result.output)
+    assert [row["msg_id"] for row in payload] == ["100", "101"]
 
 
 def test_timeline_command_supports_json(seeded_db: MessageDB):
@@ -77,3 +89,25 @@ def test_recent_command_rejects_ambiguous_channel(tmp_path, monkeypatch):
 
     assert result.exit_code != 0
     assert "ambiguous" in result.output
+
+
+def test_status_auto_yaml_when_stdout_is_not_tty(monkeypatch):
+    monkeypatch.setenv("OUTPUT", "auto")
+    monkeypatch.setenv("DISCORD_TOKEN", "token")
+
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"id": "u-1", "username": "alice", "global_name": "Alice"}
+
+    monkeypatch.setattr("httpx.get", lambda *args, **kwargs: FakeResponse())
+    runner = CliRunner()
+
+    result = runner.invoke(cli, ["status"])
+
+    assert result.exit_code == 0
+    payload = yaml.safe_load(result.output)
+    assert payload["authenticated"] is True
+    assert payload["user"]["username"] == "alice"

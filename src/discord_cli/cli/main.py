@@ -6,6 +6,7 @@ from rich.table import Table
 
 from .data import data_group
 from .discord_cmds import discord_group
+from ._output import emit_structured, structured_output_options
 from .query import query_group
 
 console = Console(stderr=True)
@@ -89,7 +90,8 @@ def auth(save: bool):
 
 
 @cli.command("status")
-def status():
+@structured_output_options
+def status(as_json: bool, as_yaml: bool):
     """Check if Discord token is valid."""
     import sys
 
@@ -100,6 +102,12 @@ def status():
     try:
         token = get_token()
     except RuntimeError as e:
+        if emit_structured(
+            {"authenticated": False, "error": str(e)},
+            as_json=as_json,
+            as_yaml=as_yaml,
+        ):
+            sys.exit(1)
         console.print(f"[red]✗[/red] {e}")
         sys.exit(1)
 
@@ -111,23 +119,40 @@ def status():
         )
         if resp.status_code == 200:
             user = resp.json()
+            payload = {
+                "authenticated": True,
+                "user": user,
+            }
+            if emit_structured(payload, as_json=as_json, as_yaml=as_yaml):
+                sys.exit(0)
             name = user.get("global_name") or user.get("username", "?")
             console.print(f"[green]✓[/green] Authenticated as [bold]{name}[/bold] (@{user.get('username')})")
             sys.exit(0)
         else:
+            if emit_structured(
+                {"authenticated": False, "status_code": resp.status_code},
+                as_json=as_json,
+                as_yaml=as_yaml,
+            ):
+                sys.exit(1)
             console.print(f"[red]✗[/red] Token invalid (HTTP {resp.status_code})")
             sys.exit(1)
     except Exception as e:
+        if emit_structured(
+            {"authenticated": False, "error": str(e)},
+            as_json=as_json,
+            as_yaml=as_yaml,
+        ):
+            sys.exit(1)
         console.print(f"[red]✗[/red] Connection error: {e}")
         sys.exit(1)
 
 
 @cli.command("whoami")
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def whoami(as_json: bool):
+@structured_output_options
+def whoami(as_json: bool, as_yaml: bool):
     """Show detailed profile of the current user."""
     import asyncio
-    import json
 
     from ..client import get_client, get_me
 
@@ -137,8 +162,7 @@ def whoami(as_json: bool):
 
     info = asyncio.run(_run())
 
-    if as_json:
-        click.echo(json.dumps(info, ensure_ascii=False, indent=2, default=str))
+    if emit_structured(info, as_json=as_json, as_yaml=as_yaml):
         return
 
     premium_names = {0: "None", 1: "Nitro Classic", 2: "Nitro", 3: "Nitro Basic"}

@@ -1,6 +1,6 @@
 ---
 name: discord-cli
-description: Discord CLI with JSON output for AI agents — fetch chat history, search messages, sync channels, and AI analysis
+description: Discord CLI with YAML-first structured output for AI agents — fetch chat history, search messages, sync channels, and AI analysis
 author: jackwener
 version: "1.0.0"
 tags:
@@ -19,10 +19,11 @@ CLI tool for Discord — fetch chat history, search messages, sync channels, AI 
 
 When you need machine-readable output:
 
-1. **Always use `--json`** for structured output. Do not parse the default rich-text table output.
+1. Prefer `--yaml` for structured output unless a strict JSON parser is required.
 2. Use `-n` to keep result sets small and token-efficient.
 3. Use `-o <file>` with `export` to save large datasets to a file.
-4. Prefer specific queries over broad ones. Example: use `discord search "keyword" -c general --json` instead of scanning all channels.
+4. Prefer specific queries over broad ones. Example: use `discord search "keyword" -c general --yaml` instead of scanning all channels.
+5. Non-TTY stdout defaults to YAML automatically. Use `OUTPUT=yaml|json|rich|auto` to override.
 
 ## Prerequisites
 
@@ -44,15 +45,16 @@ uv tool install kabi-discord-cli
 ```bash
 discord auth --save          # Auto-extract & save token
 discord status               # Check token validity (exit 0 = valid)
+discord status --yaml        # Structured auth status
 discord whoami               # User profile
-discord whoami --json        # Raw JSON
+discord whoami --yaml        # Structured profile
 ```
 
 ### Servers & Channels
 
 ```bash
 discord dc guilds            # List servers
-discord dc guilds --json     # JSON output
+discord dc guilds --yaml     # YAML output
 discord dc channels <GUILD>  # List text channels
 discord dc info <GUILD>      # Server details
 discord dc members <GUILD>   # List members
@@ -75,7 +77,7 @@ discord search "keyword"                  # Search local DB
 discord search "keyword" -c general       # Filter by channel
 discord stats                             # Per-channel stats
 discord today                             # Today's messages
-discord today -c general --json           # Filter + JSON
+discord today -c general --yaml           # Filter + YAML
 discord top                               # Most active senders
 discord top --hours 24                    # Last 24h only
 discord timeline                          # Activity chart
@@ -96,15 +98,15 @@ discord summary --hours 48                     # Last 48h summary
 
 ```bash
 # 1. First time: fetch history for channels you care about
-discord dc guilds --json
-discord dc channels <guild_id> --json
+discord dc guilds --yaml
+discord dc channels <guild_id> --yaml
 discord dc history <channel_id> -n 2000
 
 # 2. Daily: incremental sync
 discord dc sync-all
 
 # 3. Read today's messages (structured output for agents)
-discord today --json
+discord today --yaml
 
 # 4. AI summary
 discord summary

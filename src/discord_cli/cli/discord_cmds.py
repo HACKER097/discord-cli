@@ -1,7 +1,6 @@
 """Discord subcommands — guilds, channels, history, sync, sync-all, search, members."""
 
 import asyncio
-import json as json_mod
 from contextlib import suppress
 
 import click
@@ -20,6 +19,7 @@ from ..client import (
     search_guild_messages,
 )
 from ..db import MessageDB
+from ._output import emit_structured, structured_output_options
 
 console = Console(stderr=True)
 
@@ -94,8 +94,8 @@ async def _tail_fetch_once(
 
 
 @discord_group.command("guilds")
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def dc_guilds(as_json: bool):
+@structured_output_options
+def dc_guilds(as_json: bool, as_yaml: bool):
     """List joined Discord servers."""
 
     async def _run():
@@ -104,8 +104,7 @@ def dc_guilds(as_json: bool):
 
     guilds = asyncio.run(_run())
 
-    if as_json:
-        click.echo(json_mod.dumps(guilds, ensure_ascii=False, indent=2))
+    if emit_structured(guilds, as_json=as_json, as_yaml=as_yaml):
         return
 
     table = Table(title="Discord Servers")
@@ -122,8 +121,8 @@ def dc_guilds(as_json: bool):
 
 @discord_group.command("channels")
 @click.argument("guild")
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def dc_channels(guild: str, as_json: bool):
+@structured_output_options
+def dc_channels(guild: str, as_json: bool, as_yaml: bool):
     """List text channels in a GUILD (server ID or name)."""
 
     async def _run():
@@ -138,8 +137,7 @@ def dc_channels(guild: str, as_json: bool):
     if not channels:
         return
 
-    if as_json:
-        click.echo(json_mod.dumps(channels, ensure_ascii=False, indent=2))
+    if emit_structured(channels, as_json=as_json, as_yaml=as_yaml):
         return
 
     table = Table(title="Text Channels")
@@ -358,8 +356,8 @@ def dc_sync_all(limit: int):
 @click.argument("keyword")
 @click.option("-c", "--channel", help="Filter by channel ID")
 @click.option("-n", "--limit", default=25, help="Max results")
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def dc_search(guild: str, keyword: str, channel: str | None, limit: int, as_json: bool):
+@structured_output_options
+def dc_search(guild: str, keyword: str, channel: str | None, limit: int, as_json: bool, as_yaml: bool):
     """Search messages in a GUILD by KEYWORD (Discord native search)."""
 
     async def _run():
@@ -376,8 +374,7 @@ def dc_search(guild: str, keyword: str, channel: str | None, limit: int, as_json
         console.print("[yellow]No messages found.[/yellow]")
         return
 
-    if as_json:
-        click.echo(json_mod.dumps(results, ensure_ascii=False, indent=2, default=str))
+    if emit_structured(results, as_json=as_json, as_yaml=as_yaml):
         return
 
     for msg in results:
@@ -392,8 +389,8 @@ def dc_search(guild: str, keyword: str, channel: str | None, limit: int, as_json
 @discord_group.command("members")
 @click.argument("guild")
 @click.option("-n", "--max", "limit", default=50, help="Max members to list")
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def dc_members(guild: str, limit: int, as_json: bool):
+@structured_output_options
+def dc_members(guild: str, limit: int, as_json: bool, as_yaml: bool):
     """List members of a GUILD (server)."""
 
     async def _run():
@@ -410,8 +407,7 @@ def dc_members(guild: str, limit: int, as_json: bool):
         console.print("[yellow]No members found (may require Privileged Intents).[/yellow]")
         return
 
-    if as_json:
-        click.echo(json_mod.dumps(members, ensure_ascii=False, indent=2, default=str))
+    if emit_structured(members, as_json=as_json, as_yaml=as_yaml):
         return
 
     table = Table(title=f"Members ({len(members)})")
@@ -436,8 +432,8 @@ def dc_members(guild: str, limit: int, as_json: bool):
 
 @discord_group.command("info")
 @click.argument("guild")
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def dc_info(guild: str, as_json: bool):
+@structured_output_options
+def dc_info(guild: str, as_json: bool, as_yaml: bool):
     """Show detailed info about a GUILD (server)."""
 
     async def _run():
@@ -452,8 +448,7 @@ def dc_info(guild: str, as_json: bool):
         console.print(f"[red]Could not find guild: {guild}[/red]")
         return
 
-    if as_json:
-        click.echo(json_mod.dumps(info, ensure_ascii=False, indent=2, default=str))
+    if emit_structured(info, as_json=as_json, as_yaml=as_yaml):
         return
 
     table = Table(title="Guild Info", show_header=False)
