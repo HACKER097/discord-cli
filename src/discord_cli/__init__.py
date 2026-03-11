@@ -1,3 +1,8 @@
 """discord-cli — Discord CLI for fetching chat history."""
 
-__version__ = "0.2.1"
+try:
+    from importlib.metadata import version
+
+    __version__ = version("kabi-discord-cli")
+except Exception:
+    __version__ = "0.0.0"

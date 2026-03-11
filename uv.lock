@@ -543,7 +543,7 @@ wheels = [
 
 [[package]]
 name = "kabi-discord-cli"
-version = "0.2.3"
+version = "0.2.5"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
