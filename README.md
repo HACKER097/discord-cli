@@ -6,6 +6,13 @@
 
 [中文](./README_CN.md)
 
+## More Projects
+
+- [xiaohongshu-cli](https://github.com/jackwener/xiaohongshu-cli) — Xiaohongshu (小红书) CLI for notes and account workflows
+- [twitter-cli](https://github.com/jackwener/twitter-cli) — Twitter/X CLI for timelines, bookmarks, and posting
+- [bilibili-cli](https://github.com/jackwener/bilibili-cli) — Bilibili CLI for videos, users, search, and feeds
+- [tg-cli](https://github.com/jackwener/tg-cli) — Telegram CLI for local-first sync, search, and export
+
 Telethon-style local-first tooling for Discord: sync messages into SQLite, search them from the terminal, export structured results, and feed them to AI agents.
 
 discord-cli uses the Discord HTTP API with a **user token** from your local session. It is meant for accounts you control, on machines you control.
@@ -160,13 +167,6 @@ uv run ruff check .
 uv run python -m pytest
 uv build
 ```
-
-## More Projects
-
-- [xiaohongshu-cli](https://github.com/jackwener/xiaohongshu-cli) — Xiaohongshu (小红书) CLI for notes and account workflows
-- [twitter-cli](https://github.com/jackwener/twitter-cli) — Twitter/X CLI for timelines, bookmarks, and posting
-- [bilibili-cli](https://github.com/jackwener/bilibili-cli) — Bilibili CLI for videos, users, search, and feeds
-- [tg-cli](https://github.com/jackwener/tg-cli) — Telegram CLI for local-first sync, search, and export
 
 ## License
 

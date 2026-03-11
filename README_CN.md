@@ -6,6 +6,13 @@
 
 [English](./README.md)
 
+## 推荐项目
+
+- [xiaohongshu-cli](https://github.com/jackwener/xiaohongshu-cli) — 小红书笔记与账号工作流 CLI
+- [twitter-cli](https://github.com/jackwener/twitter-cli) — Twitter/X 时间线、搜索与发推 CLI
+- [bilibili-cli](https://github.com/jackwener/bilibili-cli) — Bilibili 视频、用户、搜索与动态 CLI
+- [tg-cli](https://github.com/jackwener/tg-cli) — Telegram 本地优先同步、检索与导出 CLI
+
 一个面向本地缓存和 AI agent 的 Discord CLI：把消息同步到 SQLite，本地搜索、导出和分析，再把结构化结果交给外部 agent。
 
 discord-cli 通过 Discord HTTP API 访问你本机登录态里的 **user token**。它只适合你自己控制的账号和设备。
@@ -160,13 +167,6 @@ uv run ruff check .
 uv run python -m pytest
 uv build
 ```
-
-## 推荐项目
-
-- [xiaohongshu-cli](https://github.com/jackwener/xiaohongshu-cli) — 小红书笔记与账号工作流 CLI
-- [twitter-cli](https://github.com/jackwener/twitter-cli) — Twitter/X 时间线、搜索与发推 CLI
-- [bilibili-cli](https://github.com/jackwener/bilibili-cli) — Bilibili 视频、用户、搜索与动态 CLI
-- [tg-cli](https://github.com/jackwener/tg-cli) — Telegram 本地优先同步、检索与导出 CLI
 
 ## License
 
