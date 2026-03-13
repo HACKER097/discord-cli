@@ -2,7 +2,7 @@
 name: discord-cli
 description: Discord CLI with YAML-first structured output for AI agents — fetch chat history, search messages, sync channels, and AI analysis
 author: jackwener
-version: "1.0.0"
+version: "0.2.7"
 tags:
   - discord
   - chat

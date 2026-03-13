@@ -4,6 +4,8 @@
 [![PyPI version](https://img.shields.io/pypi/v/kabi_discord_cli.svg)](https://pypi.org/project/kabi-discord-cli/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 
+> **PyPI package name:** [`kabi-discord-cli`](https://pypi.org/project/kabi-discord-cli/) — install with `uv tool install kabi-discord-cli`
+
 [中文](./README_CN.md)
 
 ## More Projects
