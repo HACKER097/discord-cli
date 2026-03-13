@@ -32,7 +32,6 @@ discord-cli 通过 Discord HTTP API 访问你本机登录态里的 **user token*
 - 结构化输出协议见 [SCHEMA.md](./SCHEMA.md)
 
 > **AI Agent 提示：** 需要结构化输出时始终使用 `--json`，不要解析默认的富文本显示。用 `-n` 控制返回数量。
-- 可选的 Claude `analyze` / `summary`
 - 更安全的 channel 解析：遇到重名或模糊匹配会直接报错，而不是误操作
 
 ## 安装
@@ -42,9 +41,6 @@ discord-cli 通过 Discord HTTP API 访问你本机登录态里的 **user token*
 uv tool install kabi-discord-cli
 # 或
 pipx install kabi-discord-cli
-
-# 安装 AI 相关命令
-uv tool install 'kabi-discord-cli[ai]'
 
 # 从 GitHub 安装
 uv tool install git+https://github.com/jackwener/discord-cli.git
@@ -64,7 +60,7 @@ uv tool upgrade kabi-discord-cli
 
 > **提示：** 建议定期升级，避免因版本过旧导致的 API 调用异常。
 
-如果要使用 AI 命令，还需要安装 `ai` extra 并配置 `ANTHROPIC_API_KEY`。
+
 
 ## 快速开始
 
@@ -125,14 +121,12 @@ discord timeline --by hour --json
 | `top [-c CHANNEL] [--hours N] [--json]` | 查看最活跃发言人 |
 | `timeline [-c CHANNEL] [--hours N] [--by day\|hour] [--json]` | 查看消息活跃度时间线 |
 
-### 数据与 AI
+### 数据管理
 
 | 命令 | 说明 |
 |------|------|
 | `export CHANNEL [-f text\|json] [-o FILE] [--hours N]` | 导出本地消息 |
 | `purge CHANNEL [-y]` | 删除某个频道的本地缓存 |
-| `analyze CHANNEL [--hours 24] [-p PROMPT]` | 用 Claude 分析单个频道 |
-| `summary [-c CHANNEL] [--hours N]` | 汇总今天或最近 N 小时的消息 |
 
 ## 行为说明
 
@@ -140,29 +134,12 @@ discord timeline --by hour --json
 - `discord dc sync-all` 现在会从 API 发现 guild/channel，所以空数据库也能直接冷启动
 - channel 名称解析基于本地数据库；如果一个名字命中多个频道，CLI 会报错并要求你改用更具体的名字或 channel ID
 
-## AI 用法
-
-先安装 AI 依赖：
-
-```bash
-uv sync --extra ai
-export ANTHROPIC_API_KEY=...
-```
-
-然后：
-
-```bash
-discord analyze general --hours 24
-discord summary --hours 12
-discord search "release" --json
-```
-
 仓库里还附带了给 agent 使用的 [SKILL.md](./SKILL.md)。
 
 ## 开发
 
 ```bash
-uv sync --extra dev --extra ai
+uv sync --extra dev
 uv run ruff check .
 uv run python -m pytest
 uv build

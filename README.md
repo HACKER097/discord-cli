@@ -34,7 +34,6 @@ discord-cli uses the Discord HTTP API with a **user token** from your local sess
 - Structured output contract: [SCHEMA.md](./SCHEMA.md)
 
 > **AI Agent Tip:** Prefer `--yaml` for structured output unless a strict JSON parser is required. Use `-n` to limit results.
-- Optional Claude-powered `analyze` and `summary`
 - Safer local channel resolution for `search`, `recent`, `today`, `export`, and `purge`
 
 ## Installation
@@ -44,9 +43,6 @@ discord-cli uses the Discord HTTP API with a **user token** from your local sess
 uv tool install kabi-discord-cli
 # or
 pipx install kabi-discord-cli
-
-# With AI commands
-uv tool install 'kabi-discord-cli[ai]'
 
 # From GitHub
 uv tool install git+https://github.com/jackwener/discord-cli.git
@@ -66,7 +62,7 @@ uv tool upgrade kabi-discord-cli
 
 > **Tip:** Upgrade regularly to avoid unexpected errors from outdated API handling.
 
-AI commands require the optional `ai` extra plus `ANTHROPIC_API_KEY`.
+
 
 ## Quick Start
 
@@ -127,14 +123,12 @@ discord timeline --by hour --json
 | `top [-c CHANNEL] [--hours N] [--json]` | Top senders |
 | `timeline [-c CHANNEL] [--hours N] [--by day\|hour] [--json]` | Activity timeline |
 
-### Data & AI
+### Data
 
 | Command | Description |
 |---------|-------------|
 | `export CHANNEL [-f text\|json] [-o FILE] [--hours N]` | Export stored messages |
 | `purge CHANNEL [-y]` | Delete stored messages for a channel |
-| `analyze CHANNEL [--hours 24] [-p PROMPT]` | Claude analysis for one channel |
-| `summary [-c CHANNEL] [--hours N]` | Claude summary across today or last N hours |
 
 ## Behavior Notes
 
@@ -142,29 +136,12 @@ discord timeline --by hour --json
 - `discord dc sync-all` now bootstraps by discovering guilds and channels through the API, so it works on a fresh database.
 - Channel names are resolved against the local database. If a name matches multiple channels, the CLI will stop and ask you to use a more specific name or a channel ID.
 
-## AI Usage
-
-Install AI support first:
-
-```bash
-uv sync --extra ai
-export ANTHROPIC_API_KEY=...
-```
-
-Then:
-
-```bash
-discord analyze general --hours 24
-discord summary --hours 12
-discord search "release" --json
-```
-
 discord-cli also ships with [SKILL.md](./SKILL.md) for agent integration.
 
 ## Development
 
 ```bash
-uv sync --extra dev --extra ai
+uv sync --extra dev
 uv run ruff check .
 uv run python -m pytest
 uv build

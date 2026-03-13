@@ -2,7 +2,7 @@
 name: discord-cli
 description: Discord CLI with YAML-first structured output for AI agents — fetch chat history, search messages, sync channels, and AI analysis
 author: jackwener
-version: "0.2.7"
+version: "0.2.8"
 tags:
   - discord
   - chat
@@ -41,7 +41,7 @@ uv tool upgrade kabi-discord-cli
 ```
 
 - Token configured via `discord auth --save`
-- AI commands require `ANTHROPIC_API_KEY` env var
+
 
 ## Commands
 
@@ -89,14 +89,11 @@ discord timeline                          # Activity chart
 discord timeline --by hour               # Hourly granularity
 ```
 
-### Data & AI
+### Data
 
 ```bash
 discord export <CHANNEL> -f json -o out.json   # Export
 discord purge <CHANNEL> -y                     # Delete stored
-discord analyze <CHANNEL> --hours 24           # AI analysis
-discord summary                                # AI summary of today
-discord summary --hours 48                     # Last 48h summary
 ```
 
 ## Workflow: Before Using
@@ -120,9 +117,6 @@ discord dc sync-all
 
 # 3. Read today's messages (structured output for agents)
 discord today --yaml
-
-# 4. AI summary
-discord summary
 ```
 
 ## Notes
@@ -130,7 +124,6 @@ discord summary
 - Uses Discord user token (not bot token) for read-only access
 - Rate limits are handled automatically with retry
 - Messages stored in SQLite at `~/Library/Application Support/discord-cli/messages.db`
-- AI commands require `ANTHROPIC_API_KEY` env var
 
 ## Safety Notes
 
