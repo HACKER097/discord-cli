@@ -9,7 +9,7 @@ from rich.console import Console
 import yaml
 
 from ._channels import resolve_channel_id_or_raise
-from ._output import default_structured_format, error_payload
+from ._output import dump_json, dump_yaml, emit_error
 from ..db import MessageDB
 
 console = Console(stderr=True)
@@ -33,28 +33,26 @@ def export(channel: str, fmt: str, output_file: str | None, hours: int | None):
         msgs = db.get_recent(channel_id=channel_id, hours=hours, limit=100000)
 
     if not msgs:
-        structured_fmt = fmt if fmt in {"json", "yaml"} else default_structured_format(as_json=False, as_yaml=False)
-        if structured_fmt in {"json", "yaml"} and output_file is None:
-            click.echo(
-                (
-                    json.dumps(error_payload("no_messages", f"No messages found for '{channel}'."), ensure_ascii=False, indent=2, default=str)
-                    if structured_fmt == "json"
-                    else yaml.safe_dump(error_payload("no_messages", f"No messages found for '{channel}'."), allow_unicode=True, sort_keys=False, default_flow_style=False)
-                )
-            )
+        if fmt in {"json", "yaml"} and output_file is None:
+            click.echo(dump_json({"error": "no_messages", "message": f"No messages found for '{channel}'."}))
             raise SystemExit(1) from None
-        console.print(f"[yellow]No messages found for '{channel}'.[/yellow]")
+        console.print(f"No messages found for '{channel}'.")
         return
 
-    auto_yaml = fmt == "text" and output_file is None and os.getenv("OUTPUT", "auto").strip().lower() != "rich" and not sys.stdout.isatty()
+    auto_yaml = (
+        fmt == "text"
+        and output_file is None
+        and os.getenv("OUTPUT", "auto").strip().lower() != "rich"
+        and not sys.stdout.isatty()
+    )
     if fmt == "json":
-        content = json.dumps(msgs, ensure_ascii=False, indent=2, default=str)
+        content = dump_json(msgs)
     elif fmt == "yaml" or auto_yaml:
-        content = yaml.safe_dump(msgs, allow_unicode=True, sort_keys=False, default_flow_style=False)
+        content = dump_yaml(msgs)
     else:
         lines = []
         for msg in msgs:
-            ts = (msg.get("timestamp") or "")[:19]
+            ts = str(msg.get("timestamp", ""))[:19]
             sender = msg.get("sender_name") or "Unknown"
             text = msg.get("content") or ""
             lines.append(f"[{ts}] {sender}: {text}")
@@ -63,9 +61,9 @@ def export(channel: str, fmt: str, output_file: str | None, hours: int | None):
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(content)
-        console.print(f"[green]✓[/green] Exported {len(msgs)} messages to {output_file}")
+        console.print(f"Exported {len(msgs)} messages to {output_file}")
     else:
-        console.print(content)
+        click.echo(content)
 
 
 @data_group.command("purge")
@@ -82,4 +80,4 @@ def purge(channel: str, yes: bool):
 
         deleted = db.delete_channel(channel_id)
 
-    console.print(f"[green]✓[/green] Deleted {deleted} messages")
+    console.print(f"Deleted {deleted} messages")

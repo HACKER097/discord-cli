@@ -26,24 +26,23 @@ def test_recent_command_supports_json(seeded_db: MessageDB):
     result = runner.invoke(cli, ["recent", "-c", "general", "-n", "2", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.output)
-    assert payload["ok"] is True
-    rows = payload["data"]
+    rows = json.loads(result.output)
     assert [row["msg_id"] for row in rows] == ["100", "101"]
     assert all(row["channel_name"] == "general" for row in rows)
 
 
-def test_recent_command_auto_yaml_when_stdout_is_not_tty(seeded_db: MessageDB, monkeypatch):
+def test_recent_command_compact_mode(seeded_db: MessageDB, monkeypatch):
     monkeypatch.setenv("OUTPUT", "auto")
     runner = CliRunner()
 
     result = runner.invoke(cli, ["recent", "-c", "general", "-n", "2"])
 
     assert result.exit_code == 0
-    payload = yaml.safe_load(result.output)
-    assert payload["ok"] is True
-    rows = payload["data"]
-    assert [row["msg_id"] for row in rows] == ["100", "101"]
+    # Default non-TTY is compact line-oriented output
+    lines = result.output.strip().split("\n")
+    assert len(lines) == 2
+    assert "Alice:" in lines[0]
+    assert "Bob:" in lines[1]
 
 
 def test_timeline_command_supports_json(seeded_db: MessageDB):
@@ -52,9 +51,7 @@ def test_timeline_command_supports_json(seeded_db: MessageDB):
     result = runner.invoke(cli, ["timeline", "--json"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.output)
-    assert payload["ok"] is True
-    rows = payload["data"]
+    rows = json.loads(result.output)
     assert rows
     assert rows[0]["period"] == "2026-03-10"
 
@@ -134,11 +131,10 @@ def test_recent_command_rejects_ambiguous_channel_yaml(tmp_path, monkeypatch):
 
     assert result.exit_code != 0
     payload = yaml.safe_load(result.output)
-    assert payload["ok"] is False
-    assert payload["error"]["code"] == "channel_resolution_error"
+    assert payload["error"] == "channel_resolution_error"
 
 
-def test_status_auto_yaml_when_stdout_is_not_tty(monkeypatch):
+def test_status_compact_when_stdout_is_not_tty(monkeypatch):
     monkeypatch.setenv("OUTPUT", "auto")
     monkeypatch.setenv("DISCORD_TOKEN", "token")
 
@@ -155,14 +151,11 @@ def test_status_auto_yaml_when_stdout_is_not_tty(monkeypatch):
     result = runner.invoke(cli, ["status"])
 
     assert result.exit_code == 0
-    payload = yaml.safe_load(result.output)
-    assert payload["ok"] is True
-    assert payload["schema_version"] == "1"
-    assert payload["data"]["authenticated"] is True
-    assert payload["data"]["user"]["username"] == "alice"
+    assert "authenticated" in result.output
+    assert "Alice" in result.output
 
 
-def test_whoami_auto_yaml_when_stdout_is_not_tty(monkeypatch):
+def test_whoami_compact_when_stdout_is_not_tty(monkeypatch):
     monkeypatch.setenv("OUTPUT", "auto")
 
     class FakeClient:
@@ -187,6 +180,5 @@ def test_whoami_auto_yaml_when_stdout_is_not_tty(monkeypatch):
     result = runner.invoke(cli, ["whoami"])
 
     assert result.exit_code == 0
-    payload = yaml.safe_load(result.output)
-    assert payload["ok"] is True
-    assert payload["data"]["user"]["username"] == "alice"
+    assert "alice" in result.output
+    assert "Alice" in result.output

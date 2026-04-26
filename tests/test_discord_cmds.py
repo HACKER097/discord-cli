@@ -151,7 +151,7 @@ def test_dc_sync_all_discovers_channels_from_api(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert "Discovered 1 channels across 1 guilds" in result.output
-    assert "+1" in result.output
+    assert "general: 1" in result.output
 
     with MessageDB() as db:
         stored = db.get_latest(channel_id="c-1", limit=10)

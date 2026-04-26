@@ -60,10 +60,15 @@ async def _handle_rate_limit(response: httpx.Response) -> None:
             await asyncio.sleep(reset_after + random.uniform(0.2, 1.0))
 
 
-async def _get(client: httpx.AsyncClient, path: str, **params: Any) -> Any:
-    """GET request with rate limit handling and retry."""
+async def _request(
+    client: httpx.AsyncClient,
+    method: str,
+    path: str,
+    **kwargs: Any,
+) -> Any:
+    """HTTP request with rate limit handling and retry."""
     for attempt in range(3):
-        response = await client.get(path, params=params)
+        response = await client.request(method, path, **kwargs)
         if response.status_code == 429:
             await _handle_rate_limit(response)
             continue
@@ -71,6 +76,16 @@ async def _get(client: httpx.AsyncClient, path: str, **params: Any) -> Any:
         response.raise_for_status()
         return response.json()
     raise RateLimitError(f"Rate limited after 3 retries: {path}")
+
+
+async def _get(client: httpx.AsyncClient, path: str, **params: Any) -> Any:
+    """GET request with rate limit handling and retry."""
+    return await _request(client, "GET", path, params=params)
+
+
+async def _post(client: httpx.AsyncClient, path: str, json: dict | None = None) -> Any:
+    """POST request with rate limit handling and retry."""
+    return await _request(client, "POST", path, json=json)
 
 
 async def list_guilds(client: httpx.AsyncClient) -> list[dict]:
@@ -274,6 +289,22 @@ async def search_guild_messages(
             if msg.get("hit"):
                 results.append(_parse_message(msg, msg.get("channel_id", "")))
     return results[:limit]
+
+
+async def get_dm_channel(client: httpx.AsyncClient, user_id: str) -> dict | None:
+    """Create or get an existing DM channel with a user.
+
+    Returns the channel dict with at least 'id', or None on failure.
+    """
+    try:
+        data = await _post(client, "/users/@me/channels", json={"recipient_id": user_id})
+        return {
+            "id": data["id"],
+            "type": data.get("type"),
+            "recipient_id": user_id,
+        }
+    except (httpx.HTTPError, KeyError, ValueError):
+        return None
 
 
 async def list_members(

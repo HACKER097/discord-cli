@@ -6,11 +6,11 @@ from contextlib import suppress
 import click
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.table import Table
 
 from ..client import (
     fetch_messages,
     get_client,
+    get_dm_channel,
     get_guild_info,
     list_channels,
     list_guilds,
@@ -19,15 +19,9 @@ from ..client import (
     search_guild_messages,
 )
 from ..db import MessageDB
-from ._output import emit_error, emit_structured, structured_output_options
+from ._output import emit_and_exit, emit_error, structured_output_options
 
 console = Console(stderr=True)
-
-
-@click.group("dc")
-def discord_group():
-    """Discord operations — list servers, fetch history, sync."""
-    pass
 
 
 async def _fetch_channel_context(client, channel_id: str) -> dict[str, str | None]:
@@ -63,16 +57,6 @@ def _annotate_messages(messages: list[dict], context: dict[str, str | None]) -> 
     return messages
 
 
-def _format_message(msg: dict, *, include_channel: bool = False) -> str:
-    """Format a single message for console output."""
-    ts = str(msg.get("timestamp", ""))[:19]
-    sender = msg.get("sender_name") or "Unknown"
-    content = (msg.get("content") or "").replace("\n", " ")[:300]
-    channel_name = msg.get("channel_name") or ""
-    prefix = f"[cyan]#{channel_name}[/cyan] | " if include_channel and channel_name else ""
-    return f"[dim]{ts}[/dim] {prefix}[bold]{sender}[/bold]: {content}"
-
-
 async def _tail_fetch_once(
     client,
     db: MessageDB,
@@ -93,9 +77,19 @@ async def _tail_fetch_once(
     return messages, messages[-1]["msg_id"], inserted
 
 
+@click.group("dc")
+def discord_group():
+    """Discord operations — list servers, fetch history, sync."""
+    pass
+
+
+# ---------------------------------------------------------------------------
+# guilds
+# ---------------------------------------------------------------------------
+
 @discord_group.command("guilds")
 @structured_output_options
-def dc_guilds(as_json: bool, as_yaml: bool):
+def dc_guilds(as_json: bool, as_yaml: bool, as_compact: bool, as_full: bool):
     """List joined Discord servers."""
 
     async def _run():
@@ -104,32 +98,30 @@ def dc_guilds(as_json: bool, as_yaml: bool):
 
     guilds = asyncio.run(_run())
 
-    if emit_structured(guilds, as_json=as_json, as_yaml=as_yaml):
+    if emit_and_exit(guilds, as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
         return
 
-    table = Table(title="Discord Servers")
-    table.add_column("ID", style="dim")
-    table.add_column("Name", style="bold")
-    table.add_column("Owner", justify="center")
-
     for g in guilds:
-        table.add_row(g["id"], g["name"], "✓" if g["owner"] else "")
+        owner = "(owner)" if g["owner"] else ""
+        click.echo(f"{g['id']}  {g['name']} {owner}".rstrip())
+    click.echo(f"\n{len(guilds)} servers")
 
-    console.print(table)
-    console.print(f"\nTotal: {len(guilds)} servers")
 
+# ---------------------------------------------------------------------------
+# channels
+# ---------------------------------------------------------------------------
 
 @discord_group.command("channels")
 @click.argument("guild")
 @structured_output_options
-def dc_channels(guild: str, as_json: bool, as_yaml: bool):
+def dc_channels(guild: str, as_json: bool, as_yaml: bool, as_compact: bool, as_full: bool):
     """List text channels in a GUILD (server ID or name)."""
 
     async def _run():
         async with get_client() as client:
             guild_id = await resolve_guild_id(client, guild)
             if not guild_id:
-                if emit_error("guild_not_found", f"Guild '{guild}' not found.", as_json=as_json, as_yaml=as_yaml):
+                if emit_error("guild_not_found", f"Guild '{guild}' not found."):
                     raise SystemExit(1) from None
                 console.print(f"[red]Guild '{guild}' not found.[/red]")
                 return []
@@ -139,20 +131,19 @@ def dc_channels(guild: str, as_json: bool, as_yaml: bool):
     if not channels:
         return
 
-    if emit_structured(channels, as_json=as_json, as_yaml=as_yaml):
+    if emit_and_exit(channels, as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
         return
 
-    table = Table(title="Text Channels")
-    table.add_column("ID", style="dim")
-    table.add_column("Name", style="bold")
-    table.add_column("Topic", max_width=50)
-
     for ch in channels:
-        table.add_row(ch["id"], f"#{ch['name']}", (ch.get("topic") or "")[:50])
+        topic = (ch.get("topic") or "")[:40]
+        extra = f"  {topic}" if topic else ""
+        click.echo(f"{ch['id']}  #{ch['name']}{extra}")
+    click.echo(f"\n{len(channels)} channels")
 
-    console.print(table)
-    console.print(f"\nTotal: {len(channels)} text channels")
 
+# ---------------------------------------------------------------------------
+# history
+# ---------------------------------------------------------------------------
 
 @discord_group.command("history")
 @click.argument("channel")
@@ -160,7 +151,8 @@ def dc_channels(guild: str, as_json: bool, as_yaml: bool):
 @click.option("--guild-name", help="Guild name to store with messages")
 @click.option("--channel-name", help="Channel name to store with messages")
 @structured_output_options
-def dc_history(channel: str, limit: int, guild_name: str | None, channel_name: str | None, as_json: bool, as_yaml: bool):
+def dc_history(channel: str, limit: int, guild_name: str | None, channel_name: str | None,
+               as_json: bool, as_yaml: bool, as_compact: bool, as_full: bool):
     """Fetch historical messages from CHANNEL (channel ID)."""
 
     async def _run():
@@ -188,22 +180,31 @@ def dc_history(channel: str, limit: int, guild_name: str | None, channel_name: s
                     progress.update(task, description=f"Fetched {len(messages)} messages")
 
                 _annotate_messages(messages, context)
-
                 inserted = db.insert_batch(messages)
-                return len(messages), inserted
+                return messages, len(messages), inserted
 
-    total, inserted = asyncio.run(_run())
-    payload = {"fetched": total, "stored": inserted}
-    if emit_structured(payload, as_json=as_json, as_yaml=as_yaml):
+    messages, total, inserted = asyncio.run(_run())
+
+    if emit_and_exit(messages, as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
         return
-    console.print(f"\n[green]✓[/green] Fetched {total} messages, stored {inserted} new")
 
+    for msg in messages:
+        ts = str(msg.get("timestamp", ""))[:19]
+        sender = msg.get("sender_name") or "Unknown"
+        content = (msg.get("content") or "").replace("\n", " ")
+        click.echo(f"{ts} {sender}: {content}")
+    click.echo(f"\n{total} fetched, {inserted} new stored")
+
+
+# ---------------------------------------------------------------------------
+# sync
+# ---------------------------------------------------------------------------
 
 @discord_group.command("sync")
 @click.argument("channel")
 @click.option("-n", "--limit", default=5000, help="Max messages per sync")
 @structured_output_options
-def dc_sync(channel: str, limit: int, as_json: bool, as_yaml: bool):
+def dc_sync(channel: str, limit: int, as_json: bool, as_yaml: bool, as_compact: bool, as_full: bool):
     """Incremental sync — fetch only new messages from CHANNEL."""
 
     async def _run():
@@ -228,16 +229,25 @@ def dc_sync(channel: str, limit: int, as_json: bool, as_yaml: bool):
                     progress.update(task_id, description=f"Fetched {len(messages)} new messages")
 
                 _annotate_messages(messages, context)
-
                 inserted = db.insert_batch(messages)
-                return len(messages), inserted
+                return messages, len(messages), inserted
 
-    total, inserted = asyncio.run(_run())
-    payload = {"fetched": total, "stored": inserted}
-    if emit_structured(payload, as_json=as_json, as_yaml=as_yaml):
+    messages, total, inserted = asyncio.run(_run())
+
+    if emit_and_exit(messages, as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
         return
-    console.print(f"\n[green]✓[/green] Synced {total} messages, stored {inserted} new")
 
+    for msg in messages:
+        ts = str(msg.get("timestamp", ""))[:19]
+        sender = msg.get("sender_name") or "Unknown"
+        content = (msg.get("content") or "").replace("\n", " ")
+        click.echo(f"{ts} {sender}: {content}")
+    click.echo(f"\nSynced {total}, stored {inserted} new")
+
+
+# ---------------------------------------------------------------------------
+# tail
+# ---------------------------------------------------------------------------
 
 @discord_group.command("tail")
 @click.argument("channel")
@@ -264,7 +274,10 @@ def dc_tail(channel: str, limit: int, interval: float, poll_limit: int, store: b
                     if store and initial:
                         db.insert_batch(initial)
                     for msg in initial:
-                        console.print(_format_message(msg))
+                        ts = str(msg.get("timestamp", ""))[:19]
+                        sender = msg.get("sender_name") or "Unknown"
+                        content = (msg.get("content") or "").replace("\n", " ")
+                        click.echo(f"{ts} {sender}: {content}")
                     if initial:
                         last_id = initial[-1]["msg_id"]
                 elif last_id is None:
@@ -279,8 +292,7 @@ def dc_tail(channel: str, limit: int, interval: float, poll_limit: int, store: b
                     return
 
                 console.print(
-                    f"\n[green]Watching[/green] {scope} "
-                    f"[dim](poll every {interval:g}s, Ctrl-C to stop)[/dim]"
+                    f"\nWatching {scope} (poll every {interval:g}s, Ctrl-C to stop)"
                 )
 
                 while True:
@@ -294,16 +306,23 @@ def dc_tail(channel: str, limit: int, interval: float, poll_limit: int, store: b
                         store=store,
                     )
                     for msg in messages:
-                        console.print(_format_message(msg))
+                        ts = str(msg.get("timestamp", ""))[:19]
+                        sender = msg.get("sender_name") or "Unknown"
+                        content = (msg.get("content") or "").replace("\n", " ")
+                        click.echo(f"{ts} {sender}: {content}")
                     if messages and store:
-                        console.print(f"[dim]+{inserted} stored[/dim]")
+                        console.print(f"+{inserted} stored")
                     await asyncio.sleep(interval)
 
     try:
         asyncio.run(_run())
     except KeyboardInterrupt:
-        console.print("\n[yellow]Stopped tailing.[/yellow]")
+        console.print("\nStopped tailing.")
 
+
+# ---------------------------------------------------------------------------
+# sync-all
+# ---------------------------------------------------------------------------
 
 @discord_group.command("sync-all")
 @click.option("-n", "--limit", default=5000, help="Max messages per channel")
@@ -328,14 +347,10 @@ def dc_sync_all(limit: int):
                         )
 
                 if not channels:
-                    if emit_error("no_channels", "No text channels found for this account."):
-                        return {}
-                    console.print("[yellow]No text channels found for this account.[/yellow]")
+                    console.print("No text channels found for this account.")
                     return {}
 
-                console.print(
-                    f"Discovered {len(channels)} channels across {len(guilds)} guilds. Syncing..."
-                )
+                console.print(f"Discovered {len(channels)} channels across {len(guilds)} guilds. Syncing...")
 
                 results: dict[str, int] = {}
                 for ch in channels:
@@ -350,18 +365,22 @@ def dc_sync_all(limit: int):
                         inserted = db.insert_batch(messages)
                         results[ch_name] = inserted
                         if inserted > 0:
-                            console.print(f"  [green]✓[/green] {ch_name}: +{inserted}")
+                            console.print(f"  + {ch_name}: {inserted}")
                         else:
-                            console.print(f"  [dim]✓ {ch_name}: no new messages[/dim]")
+                            console.print(f"  = {ch_name}: no new messages")
                     except Exception as e:
-                        console.print(f"  [red]✗ {ch_name}: {e}[/red]")
+                        console.print(f"  ! {ch_name}: {e}")
                         results[ch_name] = 0
                 return results
 
     results = asyncio.run(_run())
     total_new = sum(results.values())
-    console.print(f"\n[green]✓[/green] Synced {total_new} new messages across {len(results)} channels")
+    console.print(f"\nSynced {total_new} new messages across {len(results)} channels")
 
+
+# ---------------------------------------------------------------------------
+# search
+# ---------------------------------------------------------------------------
 
 @discord_group.command("search")
 @click.argument("guild")
@@ -369,14 +388,15 @@ def dc_sync_all(limit: int):
 @click.option("-c", "--channel", help="Filter by channel ID")
 @click.option("-n", "--limit", default=25, help="Max results")
 @structured_output_options
-def dc_search(guild: str, keyword: str, channel: str | None, limit: int, as_json: bool, as_yaml: bool):
+def dc_search(guild: str, keyword: str, channel: str | None, limit: int,
+              as_json: bool, as_yaml: bool, as_compact: bool, as_full: bool):
     """Search messages in a GUILD by KEYWORD (Discord native search)."""
 
     async def _run():
         async with get_client() as client:
             guild_id = await resolve_guild_id(client, guild)
             if not guild_id:
-                if emit_error("guild_not_found", f"Guild '{guild}' not found.", as_json=as_json, as_yaml=as_yaml):
+                if emit_error("guild_not_found", f"Guild '{guild}' not found."):
                     raise SystemExit(1) from None
                 console.print(f"[red]Guild '{guild}' not found.[/red]")
                 return []
@@ -385,35 +405,40 @@ def dc_search(guild: str, keyword: str, channel: str | None, limit: int, as_json
     results = asyncio.run(_run())
 
     if not results:
-        if emit_structured([], as_json=as_json, as_yaml=as_yaml):
+        if emit_and_exit([], as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
             return
-        console.print("[yellow]No messages found.[/yellow]")
+        console.print("No messages found.")
         return
 
-    if emit_structured(results, as_json=as_json, as_yaml=as_yaml):
+    if emit_and_exit(results, as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
         return
 
     for msg in results:
         ts = str(msg.get("timestamp", ""))[:19]
         sender = msg.get("sender_name") or "Unknown"
-        content = (msg.get("content") or "")[:200]
-        console.print(f"[dim]{ts}[/dim] [bold]{sender}[/bold]: {content}")
+        content = (msg.get("content") or "").replace("\n", " ")
+        ch = msg.get("channel_name", "")
+        prefix = f"#{ch} " if ch else ""
+        click.echo(f"{ts} {prefix}{sender}: {content}")
+    click.echo(f"\n{len(results)} messages")
 
-    console.print(f"\n[dim]Found {len(results)} messages[/dim]")
 
+# ---------------------------------------------------------------------------
+# members
+# ---------------------------------------------------------------------------
 
 @discord_group.command("members")
 @click.argument("guild")
 @click.option("-n", "--max", "limit", default=50, help="Max members to list")
 @structured_output_options
-def dc_members(guild: str, limit: int, as_json: bool, as_yaml: bool):
+def dc_members(guild: str, limit: int, as_json: bool, as_yaml: bool, as_compact: bool, as_full: bool):
     """List members of a GUILD (server)."""
 
     async def _run():
         async with get_client() as client:
             guild_id = await resolve_guild_id(client, guild)
             if not guild_id:
-                if emit_error("guild_not_found", f"Guild '{guild}' not found.", as_json=as_json, as_yaml=as_yaml):
+                if emit_error("guild_not_found", f"Guild '{guild}' not found."):
                     raise SystemExit(1) from None
                 console.print(f"[red]Guild '{guild}' not found.[/red]")
                 return []
@@ -422,62 +447,76 @@ def dc_members(guild: str, limit: int, as_json: bool, as_yaml: bool):
     members = asyncio.run(_run())
 
     if not members:
-        if emit_structured([], as_json=as_json, as_yaml=as_yaml):
+        if emit_and_exit([], as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
             return
-        console.print("[yellow]No members found (may require Privileged Intents).[/yellow]")
+        console.print("No members found (may require Privileged Intents).")
         return
 
-    if emit_structured(members, as_json=as_json, as_yaml=as_yaml):
+    if emit_and_exit(members, as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
         return
-
-    table = Table(title=f"Members ({len(members)})")
-    table.add_column("ID", style="dim")
-    table.add_column("Username", style="bold")
-    table.add_column("Display", style="cyan")
-    table.add_column("Nick", style="green")
-    table.add_column("Bot", justify="center")
 
     for m in members:
-        display = m.get("global_name") or ""
-        table.add_row(
-            m["id"],
-            f"@{m['username']}" if m.get("username") else "—",
-            display,
-            m.get("nick") or "",
-            "🤖" if m.get("bot") else "",
-        )
+        name = m.get("global_name") or m.get("username") or "?"
+        bot = " [bot]" if m.get("bot") else ""
+        nick = f" (nick: {m['nick']})" if m.get("nick") else ""
+        click.echo(f"{m['id']}  @{m.get('username', '?')}  {name}{nick}{bot}")
+    click.echo(f"\n{len(members)} members")
 
-    console.print(table)
 
+# ---------------------------------------------------------------------------
+# info
+# ---------------------------------------------------------------------------
 
 @discord_group.command("info")
 @click.argument("guild")
 @structured_output_options
-def dc_info(guild: str, as_json: bool, as_yaml: bool):
+def dc_info(guild: str, as_json: bool, as_yaml: bool, as_compact: bool, as_full: bool):
     """Show detailed info about a GUILD (server)."""
 
     async def _run():
         async with get_client() as client:
             guild_id = await resolve_guild_id(client, guild)
             if not guild_id:
-                if emit_error("guild_not_found", f"Could not find guild: {guild}", as_json=as_json, as_yaml=as_yaml):
+                if emit_error("guild_not_found", f"Could not find guild: {guild}"):
                     raise SystemExit(1) from None
                 return None
             return await get_guild_info(client, guild_id)
 
     info = asyncio.run(_run())
     if not info:
-        console.print(f"[red]Could not find guild: {guild}[/red]")
+        console.print(f"Could not find guild: {guild}")
         return
 
-    if emit_structured(info, as_json=as_json, as_yaml=as_yaml):
+    if emit_and_exit(info, as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
         return
-
-    table = Table(title="Guild Info", show_header=False)
-    table.add_column("Field", style="bold")
-    table.add_column("Value")
 
     for k, v in info.items():
-        table.add_row(k, str(v) if v is not None else "—")
+        click.echo(f"{k}: {v if v is not None else '-'}")
 
-    console.print(table)
+
+# ---------------------------------------------------------------------------
+# dm
+# ---------------------------------------------------------------------------
+
+@discord_group.command("dm")
+@click.argument("user_id")
+@structured_output_options
+def dc_dm(user_id: str, as_json: bool, as_yaml: bool, as_compact: bool, as_full: bool):
+    """Get or create a DM channel ID for a USER (by user ID)."""
+
+    async def _run():
+        async with get_client() as client:
+            return await get_dm_channel(client, user_id)
+
+    channel = asyncio.run(_run())
+
+    if not channel:
+        if emit_error("dm_failed", f"Could not open DM channel with user '{user_id}'."):
+            raise SystemExit(1) from None
+        console.print(f"Could not open DM channel with user '{user_id}'.")
+        raise SystemExit(1)
+
+    if emit_and_exit(channel, as_json=as_json, as_yaml=as_yaml, as_compact=as_compact, as_full=as_full):
+        return
+
+    click.echo(f"{channel['id']}  dm_with_user={user_id}")
